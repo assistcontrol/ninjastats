@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 )
 
@@ -38,48 +39,46 @@ func main() {
 // makeStatsDB does the heavy lifting. It returns a StatsDB
 // fully populated with the entire stats corpus.
 func makeStatsDB(path string) *StatsDB {
-	var (
-		db       = &StatsDB{}
-		wg       = sync.WaitGroup{}
-		requests = make(chan *request, 1000)
-		done     = make(chan bool)
-	)
+	db := &StatsDB{}
+	wg := sync.WaitGroup{}
 
 	// Select all relevant files
-	glob := listFiles(path)
+	glob := ListFiles(path)
 	wg.Add(len(glob))
 
 	// Signal when all scanning is done
+	done := make(chan bool)
 	go func() {
 		wg.Wait()
 		done <- true
 	}()
 
 	// Parse each file (asynchronously)
+	requests := make(chan *request, 1000)
 	for _, file := range glob {
 		go func(f string) {
-			defer func() { wg.Done() }()
 			ParseFile(f, requests)
+			wg.Done()
 		}(file)
 	}
 
 	for {
 		select {
-		// Add each request to the DB
 		case req := <-requests:
-			verb := strToVerb(req.Verb)
-			if verb == __FAILED__ {
-				continue
-			}
-			db.Add(req.Page, verb, req.Time)
-			// Return when done
+			// Add each request to the DB
+			db.Add(req.Page, strToVerb(req.Verb), req.Time)
 		case <-done:
+			// Return when done
 			return db
 		}
 	}
 }
 
-func timeFormatter(r *VerbReport) string {
+// Type Formatter is a function that formats a single verb's Report
+// as a string (< 16 chars).
+type Formatter func(r *Report) string
+
+func timeFormatter(r *Report) string {
 	// If Mean == 0, rate is nonsense
 	if r.Mean == 0 {
 		return ""
@@ -88,7 +87,7 @@ func timeFormatter(r *VerbReport) string {
 	return fmt.Sprintf("%.2f (%d)", r.Mean, r.Rate)
 }
 
-func countFormatter(r *VerbReport) string {
+func countFormatter(r *Report) string {
 	// Reduce table clutter
 	if r.Count == 0 {
 		return ""
@@ -98,17 +97,18 @@ func countFormatter(r *VerbReport) string {
 }
 
 // display produces and displays final output as a table
-func display(db *StatsDB, header string, formatter func(*VerbReport) string) {
+func display(db *StatsDB, header string, formatter Formatter) {
 	tableFormat := "%15s\t%15s\t%15s\t%15s\n"
 
 	fmt.Println(header)
 	fmt.Printf(tableFormat, "URL", "GET", "POST", "HEAD")
-	fmt.Println("───────────────────────────────────────────────────────────────────")
+	fmt.Println(strings.Repeat("─", 67))
 
-	report := db.Report()
-	for _, p := range db.Pages() {
-		page := report[p]
-
-		fmt.Printf(tableFormat, p, formatter(page.Get), formatter(page.Post), formatter(page.Head))
+	for _, page := range db.Pages() {
+		fmt.Printf(tableFormat, page,
+			formatter(db.NewReport(page, GET)),
+			formatter(db.NewReport(page, POST)),
+			formatter(db.NewReport(page, HEAD)),
+		)
 	}
 }

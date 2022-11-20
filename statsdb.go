@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"math"
 	"sort"
 )
@@ -26,6 +27,7 @@ func strToVerb(verb string) Verb {
 		return HEAD
 	}
 
+	log.Fatal("Unknown verb:", verb)
 	return __FAILED__
 }
 
@@ -42,15 +44,13 @@ func NewPage() *Page {
 
 // StatsDB
 type (
-	StatsDB    map[string]*Page
-	Report     map[string]*PageReport
-	VerbReport struct {
+	StatsDB map[string]*Page
+	Report  struct {
 		Mean     float64
 		Rate     int
 		Count    int
 		Outliers int
 	}
-	PageReport struct{ Get, Post, Head *VerbReport }
 )
 
 // Add is the main entry function that registers a time for a
@@ -60,7 +60,7 @@ func (sdb StatsDB) Add(page string, verb Verb, tm float64) {
 		sdb[page] = NewPage()
 	}
 
-	sdb.times(page, verb).Add(tm)
+	sdb.getTimes(page, verb).Add(tm)
 }
 
 // Pages returns a sorted list of known pages.
@@ -74,18 +74,9 @@ func (sdb StatsDB) Pages() []string {
 	return pages
 }
 
-func (sdb StatsDB) Report() Report {
-	r := make(Report)
-	for _, page := range sdb.Pages() {
-		r[page] = sdb.pageReport(page)
-	}
-
-	return r
-}
-
 // times returns the underlying Times structure for a given page
 // and verb
-func (sdb StatsDB) times(page string, verb Verb) *Times {
+func (sdb StatsDB) getTimes(page string, verb Verb) *Times {
 	switch verb {
 	case GET:
 		return sdb[page].get
@@ -98,26 +89,17 @@ func (sdb StatsDB) times(page string, verb Verb) *Times {
 	return nil
 }
 
-// verbReport returns a VerbReport structure detailing a single verb from
+// NewReport returns a Report structure detailing a single verb from
 // a single page
-func (sdb StatsDB) verbReport(page string, verb Verb) *VerbReport {
-	base := sdb.times(page, verb)
+func (sdb StatsDB) NewReport(page string, verb Verb) *Report {
+	base := sdb.getTimes(page, verb)
 	reduced := base.Reduce()
 	mean := reduced.Mean()
 
-	return &VerbReport{
+	return &Report{
 		Mean:     math.Round(mean*1000*100) / 100, // s -> ms, round to 2 places
 		Rate:     int(math.Round(1.0 / mean)),
 		Count:    base.Count(),
 		Outliers: base.Count() - reduced.Count(),
-	}
-}
-
-// pageReport collects VerbReports for a single page
-func (sdb StatsDB) pageReport(page string) *PageReport {
-	return &PageReport{
-		Get:  sdb.verbReport(page, GET),
-		Post: sdb.verbReport(page, POST),
-		Head: sdb.verbReport(page, HEAD),
 	}
 }

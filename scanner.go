@@ -12,7 +12,7 @@ import (
 )
 
 // listFiles returns a slice of paths to logs in the given dir
-func listFiles(path string) []string {
+func ListFiles(path string) []string {
 	glob, err := filepath.Glob(path + "/statistics.log*")
 	if err != nil {
 		log.Fatal("glob:", err)
@@ -22,6 +22,28 @@ func listFiles(path string) []string {
 	}
 
 	return glob
+}
+
+// ParseFile does the heavy lifting of extracting requests
+// from a given file. Each extracted request is sent up
+// the supplied channel.
+func ParseFile(path string, reqChan chan<- *request) {
+	compressed := strings.HasSuffix(path, ".bz2")
+
+	// It's weird to open the file here, but to defer Close() it
+	// has to appear in the same function as the scanner
+	file := openFile(path)
+	defer file.Close()
+	scanner := newScanner(newReader(file, compressed))
+
+	for scanner.Scan() {
+		req, ok := parseLine(scanner.Text())
+		if !ok {
+			continue
+		}
+
+		reqChan <- req
+	}
 }
 
 // openFile returns a handle for an opened log file
@@ -50,28 +72,6 @@ func newReader(file *os.File, compressed bool) io.Reader {
 // given reader
 func newScanner(reader io.Reader) *bufio.Scanner {
 	return bufio.NewScanner(reader)
-}
-
-// ParseFile does the heavy lifting of extracting requests
-// from a given file. Each extracted request is sent up
-// the supplied channel.
-func ParseFile(path string, reqChan chan<- *request) {
-	compressed := strings.HasSuffix(path, ".bz2")
-
-	// It's weird to open the file here, but to defer Close() it
-	// has to appear in the same function as the scanner
-	file := openFile(path)
-	defer file.Close()
-	scanner := newScanner(newReader(file, compressed))
-
-	for scanner.Scan() {
-		req, ok := parseLine(scanner.Text())
-		if !ok {
-			continue
-		}
-
-		reqChan <- req
-	}
 }
 
 // parseLine uses the requestRE regexp to extract request

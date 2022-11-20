@@ -9,6 +9,8 @@ type Times struct {
 	times []float64
 }
 
+// NewTimes creates the Times struct. Required for initialization of
+// the underlying .times slice.
 func NewTimes() *Times {
 	return &Times{
 		times: make([]float64, 0),
@@ -43,7 +45,7 @@ func (ts Times) Reduce() *Times {
 
 	reduced := &Times{}
 	for _, t := range ts.times {
-		if math.Abs(t-mean) < limit {
+		if math.Abs(t-mean) <= limit {
 			reduced.Add(t)
 		}
 	}
