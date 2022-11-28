@@ -93,7 +93,7 @@ func countFormatter(r *Report) string {
 		return ""
 	}
 
-	return fmt.Sprintf("%d (%4d)", r.Count, r.Outliers)
+	return fmt.Sprintf("%d (%5d)", r.Count, r.Outliers)
 }
 
 // display produces and displays final output as a table
