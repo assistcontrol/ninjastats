@@ -46,13 +46,6 @@ func makeStatsDB(path string) *StatsDB {
 	glob := ListFiles(path)
 	wg.Add(len(glob))
 
-	// Signal when all scanning is done
-	done := make(chan bool)
-	go func() {
-		wg.Wait()
-		done <- true
-	}()
-
 	// Parse each file (asynchronously)
 	requests := make(chan *request, 1000)
 	for _, file := range glob {
@@ -62,16 +55,15 @@ func makeStatsDB(path string) *StatsDB {
 		}(file)
 	}
 
-	for {
-		select {
-		case req := <-requests:
-			// Add each request to the DB
+	// Register each request
+	go func() {
+		for req := range requests {
 			db.Add(req.Page, strToVerb(req.Verb), req.Time)
-		case <-done:
-			// Return when done
-			return db
 		}
-	}
+	}()
+
+	wg.Wait()
+	return db
 }
 
 // Type Formatter is a function that formats a single verb's Report
