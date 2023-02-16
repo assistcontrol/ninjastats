@@ -25,20 +25,26 @@ func (ts Times) Mean() float64 {
 // CIWidth returns the width of the confidence interval of
 // the population mean of the times
 func (ts Times) CIWidth() float64 {
-	N := ts.Count()
+	N := float64(ts.Count())
 	stddev := ts.stddev()
 
-	return Zscore * (stddev / math.Sqrt(float64(N)))
+	if N <= 0 {
+		return 0
+	}
+
+	return Zscore * (stddev / math.Sqrt(N))
 }
 
 // stddev returns the population standard deviation of the times
 func (ts Times) stddev() float64 {
 	N := float64(ts.Count())
-	if N == 0 {
+	variance := ts.variance()
+
+	if N == 0 || variance < 0 {
 		return 0
 	}
 
-	return math.Sqrt(ts.variance() / N)
+	return math.Sqrt(variance / N)
 }
 
 // sum returns the sum of all times
