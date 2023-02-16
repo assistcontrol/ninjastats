@@ -50,6 +50,7 @@ type (
 		Rate     int
 		Count    int
 		Outliers int
+		CIWidth  float64
 	}
 )
 
@@ -95,11 +96,19 @@ func (sdb StatsDB) NewReport(page string, verb Verb) *Report {
 	base := sdb.getTimes(page, verb)
 	reduced := base.Reduce()
 	mean := reduced.Mean()
+	width := reduced.CIWidth()
 
 	return &Report{
-		Mean:     math.Round(mean*1000*100) / 100, // s -> ms, round to 2 places
+		Mean:     secToMsec(mean),
 		Rate:     int(math.Round(1.0 / mean)),
 		Count:    base.Count(),
 		Outliers: base.Count() - reduced.Count(),
+		CIWidth:  secToMsec(width),
 	}
+}
+
+// secToMsec converts a time in seconds to milliseconds, rounded to
+// two decimal places
+func secToMsec(sec float64) float64 {
+	return math.Round(sec*1000*100) / 100
 }

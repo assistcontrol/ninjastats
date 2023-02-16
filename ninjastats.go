@@ -18,19 +18,23 @@ type request = struct {
 	Time float64
 }
 
-var headers = struct{ count, times string }{
+var headers = struct{ ci, count, times string }{
+	ci:    "msec/page ± 95% CI:",
 	count: "count (outliers):",
 	times: "msec/page (pages/sec):",
 }
 
 func main() {
 	count := flag.Bool("c", false, "Display counts")
+	ci := flag.Bool("ci", false, "Display confidence intervals")
 	path := flag.String("path", "/var/log/MedApps", "Path to statistics logs")
 	flag.Parse()
 
 	db := makeStatsDB(*path)
 	if *count {
 		display(db, headers.count, countFormatter)
+	} else if *ci {
+		display(db, headers.ci, ciFormatter)
 	} else {
 		display(db, headers.times, timeFormatter)
 	}
@@ -86,6 +90,14 @@ func countFormatter(r *Report) string {
 	}
 
 	return fmt.Sprintf("%d (%5d)", r.Count, r.Outliers)
+}
+
+func ciFormatter(r *Report) string {
+	if r.Mean == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("%.2f ± %.2f", r.Mean, r.CIWidth)
 }
 
 // display produces and displays final output as a table
