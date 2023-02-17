@@ -3,58 +3,47 @@ package main
 import (
 	"flag"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/assistcontrol/ninjastats/format"
+	"github.com/assistcontrol/ninjastats/parser"
+	"github.com/assistcontrol/ninjastats/stats"
 )
 
-// page, verb, time
-var requestRE = regexp.MustCompile(`Rendered (\S+)\|(GET|POST|HEAD) in ([\d\.]+) secs`)
-
-// request holds the data from a single request
-type request = struct {
-	Page string
-	Verb string
-	Time float64
-}
-
-var headers = struct{ ci, count, times string }{
-	ci:    "msec/page ± 95% CI:",
-	count: "count (outliers):",
-	times: "msec/page (pages/sec):",
-}
-
 func main() {
-	count := flag.Bool("c", false, "Display counts")
+	count := flag.Bool("count", false, "Display counts")
 	ci := flag.Bool("ci", false, "Display confidence intervals")
 	path := flag.String("path", "/var/log/MedApps", "Path to statistics logs")
 	flag.Parse()
 
-	db := makeStatsDB(*path)
+	db := makeDB(*path)
 	if *count {
-		display(db, headers.count, countFormatter)
+		display(db, format.Headers.Count, format.Count)
 	} else if *ci {
-		display(db, headers.ci, ciFormatter)
+		display(db, format.Headers.CI, format.CI)
 	} else {
-		display(db, headers.times, timeFormatter)
+		display(db, format.Headers.Times, format.Time)
 	}
 }
 
-// makeStatsDB does the heavy lifting. It returns a StatsDB
+// makeDB does the heavy lifting. It returns a stats.DB
 // fully populated with the entire stats corpus.
-func makeStatsDB(path string) *StatsDB {
-	db := &StatsDB{}
+func makeDB(path string) *stats.DB {
+	db := &stats.DB{}
 	wg := sync.WaitGroup{}
 
 	// Select all relevant files
-	glob := ListFiles(path)
+	glob := parser.ListFiles(path)
 	wg.Add(len(glob))
 
 	// Parse each file (asynchronously)
-	requests := make(chan *request, 1000)
+	requests := make(chan *parser.Request, 1000)
+	defer close(requests)
+
 	for _, file := range glob {
 		go func(f string) {
-			ParseFile(f, requests)
+			parser.ParseFile(f, requests)
 			wg.Done()
 		}(file)
 	}
@@ -62,7 +51,7 @@ func makeStatsDB(path string) *StatsDB {
 	// Register each request
 	go func() {
 		for req := range requests {
-			db.Add(req.Page, strToVerb(req.Verb), req.Time)
+			db.Add(req.Page, req.Verb, req.Time)
 		}
 	}()
 
@@ -70,38 +59,8 @@ func makeStatsDB(path string) *StatsDB {
 	return db
 }
 
-// Type Formatter is a function that formats a single verb's Report
-// as a string (< 16 chars).
-type Formatter func(r *Report) string
-
-func timeFormatter(r *Report) string {
-	// If Mean == 0, rate is nonsense
-	if r.Mean == 0 {
-		return ""
-	}
-
-	return fmt.Sprintf("%.2f (%d)", r.Mean, r.Rate)
-}
-
-func countFormatter(r *Report) string {
-	// Reduce table clutter
-	if r.Count == 0 {
-		return ""
-	}
-
-	return fmt.Sprintf("%d (%5d)", r.Count, r.Outliers)
-}
-
-func ciFormatter(r *Report) string {
-	if r.Mean == 0 {
-		return ""
-	}
-
-	return fmt.Sprintf("%.2f ± %.2f", r.Mean, r.CIWidth)
-}
-
 // display produces and displays final output as a table
-func display(db *StatsDB, header string, formatter Formatter) {
+func display(db *stats.DB, header string, formatter format.Formatter) {
 	tableFormat := "%15s\t%15s\t%15s\t%15s\n"
 
 	fmt.Println(header)
@@ -110,9 +69,9 @@ func display(db *StatsDB, header string, formatter Formatter) {
 
 	for _, page := range db.Pages() {
 		fmt.Printf(tableFormat, page,
-			formatter(db.NewReport(page, GET)),
-			formatter(db.NewReport(page, POST)),
-			formatter(db.NewReport(page, HEAD)),
+			formatter(db.NewReport(page, "GET")),
+			formatter(db.NewReport(page, "POST")),
+			formatter(db.NewReport(page, "HEAD")),
 		)
 	}
 }

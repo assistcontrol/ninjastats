@@ -1,4 +1,4 @@
-package main
+package stats
 
 import (
 	"log"
@@ -42,10 +42,10 @@ func NewPage() *Page {
 	}
 }
 
-// StatsDB
+// DB
 type (
-	StatsDB map[string]*Page
-	Report  struct {
+	DB     map[string]*Page
+	Report struct {
 		Mean     float64
 		Rate     int
 		Count    int
@@ -56,7 +56,7 @@ type (
 
 // Add is the main entry function that registers a time for a
 // given page and HTTP verb.
-func (sdb StatsDB) Add(page string, verb Verb, tm float64) {
+func (sdb DB) Add(page, verb string, tm float64) {
 	if _, exists := sdb[page]; !exists {
 		sdb[page] = NewPage()
 	}
@@ -65,7 +65,7 @@ func (sdb StatsDB) Add(page string, verb Verb, tm float64) {
 }
 
 // Pages returns a sorted list of known pages.
-func (sdb StatsDB) Pages() []string {
+func (sdb DB) Pages() []string {
 	pages := make([]string, 0, len(sdb))
 	for pg := range sdb {
 		pages = append(pages, pg)
@@ -77,8 +77,8 @@ func (sdb StatsDB) Pages() []string {
 
 // times returns the underlying Times structure for a given page
 // and verb
-func (sdb StatsDB) getTimes(page string, verb Verb) *Times {
-	switch verb {
+func (sdb DB) getTimes(page, verb string) *Times {
+	switch strToVerb(verb) {
 	case GET:
 		return sdb[page].get
 	case POST:
@@ -92,7 +92,7 @@ func (sdb StatsDB) getTimes(page string, verb Verb) *Times {
 
 // NewReport returns a Report structure detailing a single verb from
 // a single page
-func (sdb StatsDB) NewReport(page string, verb Verb) *Report {
+func (sdb DB) NewReport(page, verb string) *Report {
 	base := sdb.getTimes(page, verb)
 	reduced := base.Reduce()
 	mean := reduced.Mean()

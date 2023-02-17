@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"bufio"
@@ -7,9 +7,20 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+// page, verb, time
+var requestRE = regexp.MustCompile(`Rendered (\S+)\|(GET|POST|HEAD) in ([\d\.]+) secs`)
+
+// Request holds the data from a single request
+type Request struct {
+	Page string
+	Verb string
+	Time float64
+}
 
 // listFiles returns a slice of paths to logs in the given dir
 func ListFiles(path string) []string {
@@ -27,7 +38,7 @@ func ListFiles(path string) []string {
 // ParseFile does the heavy lifting of extracting requests
 // from a given file. Each extracted request is sent up
 // the supplied channel.
-func ParseFile(path string, reqChan chan<- *request) {
+func ParseFile(path string, reqChan chan<- *Request) {
 	compressed := strings.HasSuffix(path, ".bz2")
 
 	// It's weird to open the file here, but to defer Close() it
@@ -77,7 +88,7 @@ func newScanner(reader io.Reader) *bufio.Scanner {
 // parseLine uses the requestRE regexp to extract request
 // data. Returns a *request struct and a bool indicating
 // whether the extraction was successful.
-func parseLine(s string) (*request, bool) {
+func parseLine(s string) (*Request, bool) {
 	// Match [entire string, page, verb, time]
 	match := requestRE.FindStringSubmatch(s)
 	if match == nil {
@@ -92,7 +103,7 @@ func parseLine(s string) (*request, bool) {
 	}
 
 	// Matched successfully
-	return &request{
+	return &Request{
 		Page: match[1],
 		Verb: match[2],
 		Time: tm,
