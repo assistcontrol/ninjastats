@@ -3,41 +3,46 @@ package stats
 import "math"
 
 const (
-	StdDevs = 3    // How many deviations from the mean to accept
-	Zscore  = 1.96 // 95% confidence interval
+	stdDevs = 3    // How many deviations from the mean to accept
+	zScore  = 1.96 // 95% confidence interval
 )
 
-// Count returns the total number of times (including outliers)
-func (ts Times) Count() int {
+// count returns the total number of times (including outliers)
+func (ts times) count() int {
 	return len(ts.times)
 }
 
-// Mean returns the mean time, or 0 for an empty list
-func (ts Times) Mean() float64 {
-	N := ts.Count()
+// mean returns the mean time, or 0 for an empty list
+func (ts times) mean() float64 {
+	N := ts.count()
 	if N == 0 {
 		return 0
 	}
 
-	return ts.sum() / float64(ts.Count())
+	return ts.sum() / float64(ts.count())
 }
 
-// CIWidth returns the width of the confidence interval of
+// ciWidth returns the width of the confidence interval of
 // the population mean of the times
-func (ts Times) CIWidth() float64 {
-	N := float64(ts.Count())
+func (ts times) ciWidth() float64 {
+	N := float64(ts.count())
 	stddev := ts.stddev()
 
 	if N <= 0 {
 		return 0
 	}
 
-	return Zscore * (stddev / math.Sqrt(N))
+	return zScore * (stddev / math.Sqrt(N))
+}
+
+// reductionLimit returns the limit that reduce() should use
+func (ts times) reductionLimit() float64 {
+	return stdDevs * ts.stddev()
 }
 
 // stddev returns the population standard deviation of the times
-func (ts Times) stddev() float64 {
-	N := float64(ts.Count())
+func (ts times) stddev() float64 {
+	N := float64(ts.count())
 	variance := ts.variance()
 
 	if N == 0 || variance < 0 {
@@ -48,7 +53,7 @@ func (ts Times) stddev() float64 {
 }
 
 // sum returns the sum of all times
-func (ts Times) sum() (sum float64) {
+func (ts times) sum() (sum float64) {
 	for _, t := range ts.times {
 		sum += t
 	}
@@ -57,8 +62,8 @@ func (ts Times) sum() (sum float64) {
 }
 
 // variance returns the population variance of the times
-func (ts Times) variance() (v float64) {
-	mean := ts.Mean()
+func (ts times) variance() (v float64) {
+	mean := ts.mean()
 	for _, t := range ts.times {
 		v += (t - mean) * (t - mean)
 	}

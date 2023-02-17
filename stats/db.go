@@ -31,20 +31,20 @@ func strToVerb(verb string) Verb {
 	return __FAILED__
 }
 
-// Page
-type Page struct{ get, post, head *Times }
+// page
+type page struct{ get, post, head *times }
 
-func NewPage() *Page {
-	return &Page{
-		get:  NewTimes(),
-		post: NewTimes(),
-		head: NewTimes(),
+func newPage() *page {
+	return &page{
+		get:  newTimes(),
+		post: newTimes(),
+		head: newTimes(),
 	}
 }
 
 // DB
 type (
-	DB     map[string]*Page
+	DB     map[string]*page
 	Report struct {
 		Mean     float64
 		Rate     int
@@ -58,10 +58,10 @@ type (
 // given page and HTTP verb.
 func (sdb DB) Add(page, verb string, tm float64) {
 	if _, exists := sdb[page]; !exists {
-		sdb[page] = NewPage()
+		sdb[page] = newPage()
 	}
 
-	sdb.getTimes(page, verb).Add(tm)
+	sdb.getTimes(page, verb).add(tm)
 }
 
 // Pages returns a sorted list of known pages.
@@ -75,9 +75,26 @@ func (sdb DB) Pages() []string {
 	return pages
 }
 
+// NewReport returns a Report structure detailing a single verb from
+// a single page
+func (sdb DB) NewReport(page, verb string) *Report {
+	base := sdb.getTimes(page, verb)
+	reduced := base.reduce()
+	mean := reduced.mean()
+	width := reduced.ciWidth()
+
+	return &Report{
+		Mean:     secToMsec(mean),
+		Rate:     int(math.Round(1.0 / mean)),
+		Count:    base.count(),
+		Outliers: base.count() - reduced.count(),
+		CIWidth:  secToMsec(width),
+	}
+}
+
 // times returns the underlying Times structure for a given page
 // and verb
-func (sdb DB) getTimes(page, verb string) *Times {
+func (sdb DB) getTimes(page, verb string) *times {
 	switch strToVerb(verb) {
 	case GET:
 		return sdb[page].get
@@ -88,23 +105,6 @@ func (sdb DB) getTimes(page, verb string) *Times {
 	}
 
 	return nil
-}
-
-// NewReport returns a Report structure detailing a single verb from
-// a single page
-func (sdb DB) NewReport(page, verb string) *Report {
-	base := sdb.getTimes(page, verb)
-	reduced := base.Reduce()
-	mean := reduced.Mean()
-	width := reduced.CIWidth()
-
-	return &Report{
-		Mean:     secToMsec(mean),
-		Rate:     int(math.Round(1.0 / mean)),
-		Count:    base.Count(),
-		Outliers: base.Count() - reduced.Count(),
-		CIWidth:  secToMsec(width),
-	}
 }
 
 // secToMsec converts a time in seconds to milliseconds, rounded to
