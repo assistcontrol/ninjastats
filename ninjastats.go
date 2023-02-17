@@ -61,7 +61,7 @@ func makeDB(path string) *stats.DB {
 
 // display produces and displays final output as a table
 func display(db *stats.DB, header string, formatter format.Formatter) {
-	tableFormat := "%15s\t%15s\t%15s\t%15s\n"
+	const tableFormat = "%15s\t%15s\t%15s\t%15s\n"
 
 	fmt.Println(header)
 	fmt.Printf(tableFormat, "URL", "GET", "POST", "HEAD")
