@@ -12,19 +12,16 @@ import (
 )
 
 func main() {
-	count := flag.Bool("count", false, "Display counts")
-	ci := flag.Bool("ci", false, "Display confidence intervals")
 	path := flag.String("path", "/var/log/ninja", "Path to statistics logs")
 	flag.Parse()
 
 	db := makeDB(*path)
-	if *count {
-		display(db, format.Headers.Count, format.Count)
-	} else if *ci {
-		display(db, format.Headers.CI, format.CI)
-	} else {
-		display(db, format.Headers.Times, format.Time)
-	}
+
+	display(db, format.Headers.Times, format.Time)
+	fmt.Println()
+	display(db, format.Headers.Count, format.Count)
+	fmt.Println()
+	display(db, format.Headers.CI, format.CI)
 }
 
 // makeDB does the heavy lifting. It returns a stats.DB
