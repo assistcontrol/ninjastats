@@ -17,11 +17,12 @@ func main() {
 
 	db := makeDB(*path)
 
-	display(db, format.Headers.Times, format.Time)
-	fmt.Println()
-	display(db, format.Headers.Count, format.Count)
-	fmt.Println()
-	display(db, format.Headers.CI, format.CI)
+	tables := []string{
+		display(db, format.Headers.Times, format.Time),
+		display(db, format.Headers.Count, format.Count),
+		display(db, format.Headers.CI, format.CI),
+	}
+	fmt.Print(strings.Join(tables, "\n"))
 }
 
 // makeDB does the heavy lifting. It returns a stats.DB
@@ -57,18 +58,20 @@ func makeDB(path string) *stats.DB {
 }
 
 // display produces and displays final output as a table
-func display(db *stats.DB, header string, formatter format.Formatter) {
+func display(db *stats.DB, header string, formatter format.Formatter) string {
 	const tableFormat = "%15s\t%15s\t%15s\t%15s\n"
 
-	fmt.Println(header)
-	fmt.Printf(tableFormat, "URL", "GET", "POST", "HEAD")
-	fmt.Println(strings.Repeat("─", 67))
+	s := fmt.Sprintln(header)
+	s += fmt.Sprintf(tableFormat, "URL", "GET", "POST", "HEAD")
+	s += fmt.Sprintln(strings.Repeat("─", 67))
 
 	for _, page := range db.Pages() {
-		fmt.Printf(tableFormat, page,
+		s += fmt.Sprintf(tableFormat, page,
 			formatter(db.NewReport(page, "GET")),
 			formatter(db.NewReport(page, "POST")),
 			formatter(db.NewReport(page, "HEAD")),
 		)
 	}
+
+	return s
 }
