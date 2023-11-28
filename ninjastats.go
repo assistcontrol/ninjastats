@@ -18,9 +18,9 @@ func main() {
 	db := makeDB(*path)
 
 	tables := []string{
-		display(db, format.Headers.Times, format.Time),
-		display(db, format.Headers.Count, format.Count),
-		display(db, format.Headers.CI, format.CI),
+		display(db, format.HeaderTimes, format.Time),
+		display(db, format.HeaderCount, format.Count),
+		display(db, format.HeaderCI, format.CI),
 	}
 	fmt.Print(strings.Join(tables, "\n"))
 }

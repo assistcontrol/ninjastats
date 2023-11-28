@@ -6,11 +6,11 @@ import (
 	"github.com/assistcontrol/ninjastats/stats"
 )
 
-var Headers = struct{ CI, Count, Times string }{
-	CI:    "msec/page ± 95% CI:",
-	Count: "count (outliers):",
-	Times: "msec/page (pages/sec):",
-}
+const (
+	HeaderCI    = "msec/page ± 95% CI:"
+	HeaderCount = "count (outliers):"
+	HeaderTimes = "msec/page (pages/sec):"
+)
 
 // Type Formatter is a function that formats a single verb's Report
 // as a string (< 16 chars).
