@@ -2,14 +2,15 @@ package parser
 
 import (
 	"bufio"
-	"compress/bzip2"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/assistcontrol/ninjastats/parser/bz2"
+	"github.com/assistcontrol/ninjastats/parser/flat"
 )
 
 // page, verb, time
@@ -39,13 +40,17 @@ func ListFiles(path string) []string {
 // from a given file. Each extracted request is sent up
 // the supplied channel.
 func ParseFile(path string, reqChan chan<- *Request) {
-	compressed := strings.HasSuffix(path, ".bz2")
+	var file *os.File
+	var scanner *bufio.Scanner
 
-	// It's weird to open the file here, but to defer Close() it
-	// has to appear in the same function as the scanner
-	file := openFile(path)
+	if strings.HasSuffix(path, ".bz2") {
+		file = bz2.Open(path)
+		scanner = bz2.Scanner(file)
+	} else {
+		file = flat.Open(path)
+		scanner = flat.Scanner(file)
+	}
 	defer file.Close()
-	scanner := newScanner(newReader(file, compressed))
 
 	for scanner.Scan() {
 		req, ok := parseLine(scanner.Text())
@@ -55,34 +60,6 @@ func ParseFile(path string, reqChan chan<- *Request) {
 
 		reqChan <- req
 	}
-}
-
-// openFile returns a handle for an opened log file
-func openFile(path string) *os.File {
-	file, err := os.Open(path)
-	if err != nil {
-		log.Fatalf("open %s: %v", path, err)
-	}
-
-	return file
-}
-
-// newReader returns a reader capable of reading the file
-// argument. If compressed is true, the file is assumed to be
-// bzip2-compressed and is passed through an appropriate
-// decompressor.
-func newReader(file *os.File, compressed bool) io.Reader {
-	if compressed {
-		return bzip2.NewReader(file)
-	}
-
-	return file
-}
-
-// newScanner returns a line-oriented bufio.Scanner for a
-// given reader
-func newScanner(reader io.Reader) *bufio.Scanner {
-	return bufio.NewScanner(reader)
 }
 
 // parseLine uses the requestRE regexp to extract request
