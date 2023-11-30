@@ -2,15 +2,13 @@ package parser
 
 import (
 	"bufio"
+	"compress/bzip2"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/assistcontrol/ninjastats/parser/bz2"
-	"github.com/assistcontrol/ninjastats/parser/flat"
 )
 
 // page, verb, time
@@ -40,17 +38,21 @@ func ListFiles(path string) []string {
 // from a given file. Each extracted request is sent up
 // the supplied channel.
 func ParseFile(path string, reqChan chan<- *Request) {
-	var file *os.File
-	var scanner *bufio.Scanner
-
-	if strings.HasSuffix(path, ".bz2") {
-		file = bz2.Open(path)
-		scanner = bz2.Scanner(file)
-	} else {
-		file = flat.Open(path)
-		scanner = flat.Scanner(file)
+	// Open the file
+	file, err := os.Open(path)
+	if err != nil {
+		log.Fatalf("open %s: %v", path, err)
 	}
 	defer file.Close()
+
+	// Create a scanner for the file
+	var scanner *bufio.Scanner
+	switch {
+	case strings.HasSuffix(path, ".bz2"):
+		scanner = bufio.NewScanner(bzip2.NewReader(file))
+	default:
+		scanner = bufio.NewScanner(file)
+	}
 
 	for scanner.Scan() {
 		req, ok := parseLine(scanner.Text())
