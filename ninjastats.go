@@ -36,7 +36,7 @@ func makeDB(path string) *stats.DB {
 	wg.Add(len(glob))
 
 	// Parse each file (asynchronously)
-	requests := make(chan *parser.Request, 1000)
+	requests := make(chan *parser.Request, 10)
 	defer close(requests)
 
 	for _, file := range glob {
