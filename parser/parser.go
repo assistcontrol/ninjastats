@@ -43,7 +43,11 @@ func ParseFile(path string, reqChan chan<- *Request) {
 	if err != nil {
 		log.Fatalf("open %s: %v", path, err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			panic("Unable to close " + path + ": " + err.Error())
+		}
+	}()
 
 	// Create a scanner for the file
 	var scanner *bufio.Scanner
