@@ -1,3 +1,3 @@
 module github.com/assistcontrol/ninjastats
 
-go 1.19
+go 1.24
